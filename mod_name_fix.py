@@ -8,9 +8,10 @@ import pathlib
 
 def do_parse(args, dbg_lvl=0):
     parser = argparse.ArgumentParser(
-        description="""Rename files and directories to eliminate special characters in 
-        their names.  This is intented for The Sims 4 custom content, but will
-        happily munch whatever you point it at.""")
+        description="""Renames files and directories to eliminate special characters in
+        their names.  This is intented for The Sims 4 custom content,
+        but it isn't picky.  This will happily munch whatever you
+        point it at.""")
 
     parser.add_argument('dir', action='store', metavar='ROOT', type=pathlib.Path,
                         help='Recursively process all files in all directories under ROOT'
