@@ -135,3 +135,14 @@ dashes in the name, and rename each one to remove the dashes.
 ``` shellsession
 ~/projects/ts4-utilities/mod_name_fix.py --dashes delete --really mods_home
 ```
+
+# Resources
+
+## MacOS / OS X Command Line
+
+These appear to be good tutorials for using the command-line (terminal) interface on a Mac:
+* [A Beginner's Guide to Using the Mac Terminal](https://www.makeuseof.com/tag/beginners-guide-mac-terminal/) at MakeUseOf.
+* [Getting to Know the Command Line](https://www.davidbaumgold.com/tutorials/command-line/) on David Baumgold's blog.
+* [Command Line Primer](https://developer.apple.com/library/archive/documentation/OpenSource/Conceptual/ShellScripting/CommandLInePrimer/CommandLine.html) from Apple Developer.
+
+

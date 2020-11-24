@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Markdown preview output:
+README.html~
+
+#IDK what this is, honestly
+.DS_Store
