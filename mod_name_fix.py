@@ -1,20 +1,36 @@
 #!/usr/bin/env python3
 
+""" File and directory renamer for The Sims 4 CC / mods.
+"""
+
+__DOCS_URL__ = "https://github.com/ewa-silly/ts4-utilities#usage"
+
 import os
 import sys
 import re
 import argparse
 import pathlib
+import textwrap
 
 def do_parse(args, dbg_lvl=0):
-    parser = argparse.ArgumentParser(
-        description="""Renames files and directories to eliminate special characters in
-        their names.  This is intented for The Sims 4 custom content,
-        but it isn't picky.  This will happily munch whatever you
-        point it at.""")
 
-    parser.add_argument('dir', action='store', metavar='ROOT', type=pathlib.Path,
-                        help='Recursively process all files in all directories under ROOT'
+    _help_=("""This is the Sims 4 mod and CC renaming tool.  
+
+    To use it, you must provide additional information via
+    command-line arguments. On-line help is available at %(url)s.
+
+    If you are familiar with unix-style command-line tools, the supported usage is as follows:
+    """ % {"url": __DOCS_URL__}).splitlines()
+    
+    wrapper = textwrap.TextWrapper(replace_whitespace=False)
+    _help_ = [wrapper.wrap(textwrap.dedent(p)) for p in _help_]
+
+    
+    
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('dir', action='store', metavar='target_directory', type=pathlib.Path,
+                        help='Recursively process all files in all directories under target_directory'
     )
 
     parser.add_argument('--whitespace', action='store', nargs=1,
@@ -37,7 +53,7 @@ def do_parse(args, dbg_lvl=0):
                         help="Actually make the changes")
 
     parser.add_argument('-e', '--elsewhere', action='store_true', default=False,
-                        help="Allow ROOT outside current directory")
+                        help="Allow target_directory outside current directory")
 
     parser.add_argument('-o', '--only', action='store', type=int,
                         metavar='N', help="Only make N changes before stopping")
@@ -45,14 +61,14 @@ def do_parse(args, dbg_lvl=0):
 
     ##Actions are reused by "whitespace" and "specials"
     ap = argparse.ArgumentParser("Actions for Matches", add_help=False)
-
-#     s = parser.add_subparsers()
-# #    p.add_argument('n', action='store', type=int)
-#     bp = s.add_parser('balls', parents=[ap])
-#     bp = s.add_parser('eyes', parents=[ap])
-
     
-
+    ## Special-case check for the "no arguments supplied" situation
+    if len(args)==1:
+        print('\n'.join(['\n'.join(l) for l in _help_]))
+        #print(repr(wrapper.wrap(_help_)))
+        parser.print_help()
+        sys.exit(1)
+        
     args_opts = parser.parse_args(args[1:])
 
     if ((args_opts.whitespace is not None and args_opts.whitespace != False) and
@@ -87,7 +103,7 @@ def main(args):
             here_r == root_r or         # Root is cwd
             args_opts.elsewhere):       # --elsewhere is selected
 
-        sys.stderr.write("""\nABORT\n\nSelected ROOT "%s" ("%s") is not a subdirectory of your current directory %s\nand the 'elsewhere' option is not set.\n\n""" % (root, root_r, here))
+        sys.stderr.write("""\nABORT\n\nSelected target_directory "%s" ("%s") is not a subdirectory of your current directory %s\nand the 'elsewhere' option is not set.\n\n""" % (root, root_r, here))
         sys.exit(-1)
     
 
