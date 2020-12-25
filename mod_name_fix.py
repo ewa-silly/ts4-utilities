@@ -10,19 +10,19 @@ import sys
 import re
 import argparse
 import pathlib
+import shutil
 import textwrap
 
 def do_parse(args, dbg_lvl=0):
 
     _help_=("""This is the Sims 4 mod and CC renaming tool.  
 
-    To use it, you must provide additional information via
-    command-line arguments. On-line help is available at %(url)s.
+    To use it, you must provide additional information via command-line arguments. On-line help is available at %(url)s.
 
     If you are familiar with unix-style command-line tools, the supported usage is as follows:
     """ % {"url": __DOCS_URL__}).splitlines()
     
-    wrapper = textwrap.TextWrapper(replace_whitespace=False)
+    wrapper = textwrap.TextWrapper(replace_whitespace=False, width=shutil.get_terminal_size()[0])
     _help_ = [wrapper.wrap(textwrap.dedent(p)) for p in _help_]
 
     
