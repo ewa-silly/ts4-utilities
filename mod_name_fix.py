@@ -5,6 +5,9 @@
 
 __DOCS_URL__ = "https://github.com/ewa-silly/ts4-utilities#usage"
 
+__DEBUG_DIR_WALK__ = False
+
+
 import os
 import sys
 import re
@@ -12,6 +15,10 @@ import argparse
 import pathlib
 import shutil
 import textwrap
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger=logging.getLogger(__name__)
 
 def do_parse(args, dbg_lvl=0):
 
@@ -27,21 +34,23 @@ def do_parse(args, dbg_lvl=0):
 
     
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(epilog="This script only takes one kind of renaming action at a time.  That is, one and only one of --whitespace, --dashes, and --specials may be specified at once.  To perform multiple actions, run this program once with each.")
 
     parser.add_argument('dir', action='store', metavar='target_directory', type=pathlib.Path,
                         help='Recursively process all files in all directories under target_directory'
     )
 
-    parser.add_argument('--whitespace', action='store', nargs=1,
+    one_action = parser.add_mutually_exclusive_group(required=True)
+    
+    one_action.add_argument('--whitespace', action='store', nargs=1,
                         choices=['delete', 'to_dash', 'underscore', 'error'],
                         help=
                         """Match on whitespace characters in file/directory names""")
 
-    parser.add_argument('--dashes', action='store', nargs=1,
+    one_action.add_argument('--dashes', action='store', nargs=1,
                         choices=['delete', 'to_dash', 'underscore', 'error'],
                         help='Compress redonkulous sequences of _-_ type things')
-    parser.add_argument('--specials', action='store', nargs=1,
+    one_action.add_argument('--specials', action='store', nargs=1,
                         choices=['delete', 'to_dash', 'underscore', 'error'],
                         help="""Match 'special' characters: ~ & [ ] / \\""")
 
@@ -71,32 +80,26 @@ def do_parse(args, dbg_lvl=0):
         
     args_opts = parser.parse_args(args[1:])
 
-    if ((args_opts.whitespace is not None and args_opts.whitespace != False) and
-        (args_opts.specials is not None and args_opts.specials != False)):
-        sys.stderr.write("--specials, --whitespace, and --dashes are mutually exclusive.\nRun them in separate passes if needed.")
-    
-    if (dbg_lvl >= 1):
-        print(repr(args_opts))
+    logger.debug("Options/arguments (as parsed): " + repr(args_opts))
 
     
-    return args_opts
+    return (parser, args_opts)
     
 
 def main(args):
 
     DEBUG=2
 
-    args_opts = do_parse(args, DEBUG)
+    (parser, args_opts) = do_parse(args, DEBUG)
 
     root = args_opts.dir
     root_r = root.resolve(strict=True)
     here = pathlib.Path.cwd()
     here_r = here.resolve(strict=True)
 
-    if (DEBUG >=2):
 
-        print(repr(list(root_r.parents)))
-        print(here_r in root_r.parents)
+    logger.debug("Parent directories of target (root) directory:\n\t" + '\n\t'.join([str(p) for p in root_r.parents]))
+    logger.debug("Current directory is one of those parents: " + str(here_r in root_r.parents))
 
 
     if not (here_r in root_r.parents or # Root is a subdirectory of cwd
@@ -117,6 +120,9 @@ def main(args):
         action = args_opts.specials[0]
     elif args_opts.dashes:
         action = args_opts.dashes[0]
+
+    if action is None:
+        parser.error("At least one renaming option (e.g. --whitespace, --dashes, ...)  must be specified")
     
     if  (args_opts.whitespace and not args_opts.tilde_space):
         mster = re.compile("\s+")
@@ -137,15 +143,26 @@ def main(args):
         'underscore' : '_',
         'error' : Exception("Yo, this is the error case")
     }
-
+    
     my_repl = action_repls[action]
+    logger.debug("Selected action: {}".format(action))
+    logger.debug("Pattern to match: {}".format(mster))
+    logger.debug("Replacement string: {}".format(repr(my_repl)))
+
     
     #print(repr(root))
 
     change_ct = 0
-    #Iterate, depth-first
+    
+    #Iterate, depth-first.  Depth-first IS IMPORTANT so we don't
+    #rename a directory and then try to recurse into (the old name's)
+    #subdirectories
+
+    if not args_opts.really:
+        print("\nExecuting dry run (without --really option).  The following changes (if any) would be made if run with --really:\n")
+    
     for (dir, subs, files, fd) in os.fwalk(root_r, topdown=False):
-        print("(%d) %s:" % (fd, dir))
+        logger.debug("Walking directory %s:" % (dir))
 
         #sanity
         dir_path = pathlib.Path(dir)
@@ -154,8 +171,9 @@ def main(args):
         if not dir_path.is_dir():
             raise UserWarning("Path is not a directory?: '%s'" % (dir_path))
 
-        
-        print("Files:")
+        if __DEBUG_DIR_WALK__:
+            logger.debug("Files in this directory:\n " + '\n'.join(['\t%s' % f for f in files]))
+    
         for f in files:
             full_p = dir_path / pathlib.Path(f)
 
@@ -168,24 +186,19 @@ def main(args):
                 raise UserWarning("Path is a symlink? Not cool, man: '%s'" % (full_p))
 
 
-            print("\t(%d) %s" % (fd,f))
-
             if (action == 'error' and mster.search(f)):
                 raise ValueError("Filename '%s' matches regex: %s, and you requested treating that as an error" % (f, repr(mster.search(f))))
             
-            (newstr, ct) = mster.subn(my_repl,f)
+            (newstr, ct) = mster.subn(my_repl,f) # ct is # of substitutions made 
             if (ct > 0):
-                print("\t -->  %s" % (newstr))
                 new_p = dir_path / pathlib.Path(newstr)
                 #print("\t === %s" % new_p)
                 if args_opts.really:
+                    logger.info("Renaming file '%s' -->  '%s'" % (f, newstr))
+                    logger.debug("Renaming file (full) '%s' --> '%s'" % (full_p, new_p))
                     full_p.rename(new_p)
-                    # sys.stderr.write(" xx %s ==> %s\n" % (repr(new_p), repr(actual_new)))
-                    # if actual_new.resolve() != new_p.resolve():
-                    #     print("Hmmm: %s %s" % (new_p, actualy_new))
-                    #     raise Exception("Eep!")
                 else:
-                    print("\t To do it for real, pass --really flag")
+                    logger.info("WOULD rename file '%s' -->  '%s'" % (f, newstr))
         
                 change_ct = change_ct + 1
                 if (args_opts.only is not None and (change_ct >= args_opts.only)):
@@ -196,8 +209,9 @@ def main(args):
                 
 
                 
-                
-        print("\nSubdirectories:")
+        if __DEBUG_DIR_WALK__:                
+            logger.debug("Subdirectories in this directory:\n " + '\n'.join(['\t%s' % d for d in subs]))
+        
         for d in subs:
 
             full_p = dir_path / pathlib.Path(d)
@@ -210,21 +224,20 @@ def main(args):
             if full_p.is_symlink():
                 raise UserWarning("Path is a symlink? Not cool, man: '%s'" % (full_p))
 
-            print("\t(%d) %s" % (fd, d))
+            #print("\t(%d) %s" % (fd, d))
 
             (newstr, ct) = mster.subn(my_repl,d)
+
+            logger.debug("Directory path '%s' matches pattern '%s': %d" % (d, mster, ct))
             if (ct > 0):
-                print("\t -->  %s" % (newstr))
                 new_p = dir_path / pathlib.Path(newstr)
-                #print("\t === %s" % new_p)
                 if args_opts.really:
+                    logger.info("Renaming dir '%s' -->  '%s'" % (d, newstr))
+                    logger.debug("Renaming dir (full) '%s' --> '%s'" % (full_p, new_p))
+
                     full_p.rename(new_p)
-                    # sys.stderr.write(" xx %s ==> %s\n" % (repr(new_p), repr(actual_new)))
-                    # if actual_new.resolve() != new_p.resolve():
-                    #     print("Hmmm: %s %s" % (new_p, actualy_new))
-                    #     raise Exception("Eep!")
                 else:
-                    print("\t To do it for real, pass --really flag")
+                    logger.info("WOULD rename dir '%s' -->  '%s'" % (d, newstr))
         
                 change_ct = change_ct + 1
                 if (args_opts.only is not None and (change_ct >= args_opts.only)):
