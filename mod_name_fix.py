@@ -52,7 +52,7 @@ def do_parse(args, dbg_lvl=0):
                         help='Compress redonkulous sequences of _-_ type things')
     one_action.add_argument('--specials', action='store', nargs=1,
                         choices=['delete', 'to_dash', 'underscore', 'error'],
-                        help="""Match 'special' characters: ~ & [ ] / \\""")
+                        help="""Match 'special' characters such as ~ & [ ] ( ) { } / \\""")
 
     
     parser.add_argument('-t', '--tilde_space', action='store_true',
